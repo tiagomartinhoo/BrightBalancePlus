@@ -1,4 +1,4 @@
-# brightbalance
+# brightbalanceplus
 
 SCMU Project
 
