@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "962961449912",
+    "project_id": "brightbalance-b0412",
+    "storage_bucket": "brightbalance-b0412.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:962961449912:android:78b570de634b408b64a54d",
+        "android_client_info": {
+          "package_name": "com.example.brightbalance"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "962961449912-n86rr67b5vlm69aht6os7t3gp9cu3toj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYb6AzYYBf8jgmgK253XZK4uNz0GEuM_w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "962961449912-n86rr67b5vlm69aht6os7t3gp9cu3toj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
