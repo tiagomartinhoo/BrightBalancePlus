@@ -1,20 +1,26 @@
 #include <ESP32Servo.h>
 
 // RGB
-const int RED_PIN = 3;
-const int GREEN_PIN = 4;
-const int BLUE_PIN = 5;
+const int RED_PIN = 4;
+const int GREEN_PIN = 5;
+const int BLUE_PIN = 6;
 int redValue, greenValue, blueValue;
 
 // Light
-const int PHOTO_PIN = 6;
-int brightness, lightLevel;
+const int OUT_PHOTO_PIN = 2;
+const int IN_PHOTO_PIN = 7;
+const int THRESHOLD = 1000;
+int brightness, indoorLightLevel, outdoorLightLevel;
 
 // Temperature
-const int OUT_THERM_PIN = 2;
-const int IN_THERM_PIN = 7;
+const int OUT_THERM_PIN = 3;
+const int IN_THERM_PIN = 8;
 const float BETA = 3950;
 float outTemp, inTemp;
+
+// Fan
+const int FAN_PIN = 1;
+bool blowing = false;
 
 // Servo
 Servo motor;
@@ -25,12 +31,23 @@ void setup() {
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
+  pinMode(OUT_PHOTO_PIN, INPUT);
+  pinMode(IN_PHOTO_PIN, INPUT);
+  pinMode(OUT_THERM_PIN, INPUT);
+  pinMode(IN_THERM_PIN, INPUT);
+  pinMode(FAN_PIN, OUTPUT);
   motor.attach(SERVO_PIN);
   Serial.begin(115200);
-  setColor(75, 0, 150); // Example, to be modified based on user preference
+  setColor(50, 0, 150); // Example, to be modified based on user preference
 }
 
 void loop() {
+
+  if (blowing) {
+    digitalWrite(FAN_PIN, HIGH);
+  } else {
+    digitalWrite(FAN_PIN, LOW);
+  }
 
   brightness = calculateLightingAdjustment();
   inTemp = getIndoorsTemperature();
@@ -49,6 +66,13 @@ void loop() {
     Serial.println("It appears to be warmer outside");
   } else {
     Serial.println("It is just as warm inside and outside");
+  }
+
+  getOutdoorsLighting();
+  if (outdoorLightLevel > THRESHOLD) {
+    Serial.println("It is daytime");
+  } else {
+    Serial.println("It is nighttime");
   }
 
   if (Serial.available()) {
@@ -72,9 +96,13 @@ void setColor(int red, int green, int blue) {
 }
 
 int calculateLightingAdjustment() {
-  lightLevel = analogRead(PHOTO_PIN);
-  int result = map(lightLevel, 0, 4095, 255, 0);
+  indoorLightLevel = analogRead(IN_PHOTO_PIN);
+  int result = map(indoorLightLevel, 0, 4095, 255, 0);
   return constrain(result, 0, 255);
+}
+
+void getOutdoorsLighting() {
+  outdoorLightLevel = analogRead(OUT_PHOTO_PIN);
 }
 
 float getIndoorsTemperature() {
@@ -98,6 +126,8 @@ void adjustBlinds(String command) {
     currentAngle = 90;
   } else if (command == "lower") {
     currentAngle = 0;
+  } else if (command == "fan") {
+    blowing = !blowing;
   }
   motor.write(currentAngle);
 }
