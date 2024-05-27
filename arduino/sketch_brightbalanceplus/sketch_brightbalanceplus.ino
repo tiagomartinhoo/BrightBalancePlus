@@ -1,18 +1,15 @@
 #include <ESP32Servo.h>
 #include <WiFi.h>
-#include <HTTPClient.h>
-#include <WiFiClientSecure.h>
-#include <Arduino_JSON.h>
-#include <DHT.h>
 #include <Firebase_ESP_Client.h>
 
 #define FIREBASE_HOST "bright-balance-plus-default-rtdb.europe-west1.firebasedatabase.app/" 
 #define FIREBASE_AUTH "UvNo9qRcjbJKMwsBIH02LJ3Q4whRMvPJyZdIaCsn" 
 #define WIFI_SSID "Tiago's IPhone" 
 #define WIFI_PASSWORD "123456789a"
+#define USER_EMAIL "t.martinho@campus.fct.unl.pt"
+#define USER_PASSWORD "Tigas2002"
 
 FirebaseData fbdo;
-
 FirebaseAuth auth;
 FirebaseConfig config;
 
@@ -44,19 +41,21 @@ const int SERVO_PIN = 15;
 int currentAngle = 0;
 
 void setup() {
-  WiFi.begin(SSID, PASSWORD);
-  Serial.println("Connecting");
-  while(WiFi.status() != WL_CONNECTED) { 
+  Serial.begin(115200);
+  // Initialize WiFi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.println("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) { 
     delay(500);
+    Serial.print(".");
   }
+  Serial.println("\nConnected to WiFi");
 
-  config.api_key = API_KEY;
-
+  // Initialize Firebase
+  config.api_key = FIREBASE_AUTH;
   auth.user.email = USER_EMAIL;
   auth.user.password = USER_PASSWORD;
-
-  config.database_url = FIREBASE_URL;
-
+  config.database_url = FIREBASE_HOST;
   Firebase.begin(&config, &auth);
 
   pinMode(RED_PIN, OUTPUT);
@@ -68,7 +67,7 @@ void setup() {
   pinMode(IN_THERM_PIN, INPUT);
   pinMode(FAN_PIN, OUTPUT);
   motor.attach(SERVO_PIN);
-  Serial.begin(115200);
+  
   setColor(50, 0, 150); // Example, to be modified based on user preference
 
 
@@ -77,7 +76,7 @@ void setup() {
 void loop() {
 
     // CHECK WIFI, FIREBASE AND STATUS OF THE DEVICE
-  if(WiFi.status() == WL_CONNECTED && Firebase.ready() && resultStatus.boolValue){
+  if(WiFi.status() == WL_CONNECTED && Firebase.ready()){
     digitalWrite(FAN_PIN, HIGH);
   }else{
     digitalWrite(FAN_PIN, LOW);
