@@ -4,7 +4,7 @@
 
 #define FIREBASE_HOST "bright-balance-plus-default-rtdb.europe-west1.firebasedatabase.app/" 
 #define FIREBASE_AUTH "UvNo9qRcjbJKMwsBIH02LJ3Q4whRMvPJyZdIaCsn" 
-#define WIFI_SSID "Tiago's IPhone" 
+#define WIFI_SSID "Tiago’s iPhone" 
 #define WIFI_PASSWORD "123456789a"
 #define USER_EMAIL "t.martinho@campus.fct.unl.pt"
 #define USER_PASSWORD "Tigas2002"
