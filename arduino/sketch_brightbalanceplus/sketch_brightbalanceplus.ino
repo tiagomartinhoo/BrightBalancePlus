@@ -43,11 +43,7 @@ void setup() {
 
 void loop() {
 
-  if (blowing) {
-    digitalWrite(FAN_PIN, HIGH);
-  } else {
-    digitalWrite(FAN_PIN, LOW);
-  }
+  digitalWrite(FAN_PIN, blowing ? HIGH : LOW);
 
   brightness = calculateLightingAdjustment();
   inTemp = getIndoorsTemperature();
