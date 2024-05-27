@@ -1,4 +1,20 @@
 #include <ESP32Servo.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <Arduino_JSON.h>
+#include <DHT.h>
+#include <Firebase_ESP_Client.h>
+
+#define FIREBASE_HOST "bright-balance-plus-default-rtdb.europe-west1.firebasedatabase.app/" 
+#define FIREBASE_AUTH "UvNo9qRcjbJKMwsBIH02LJ3Q4whRMvPJyZdIaCsn" 
+#define WIFI_SSID "Tiago's IPhone" 
+#define WIFI_PASSWORD "123456789a"
+
+FirebaseData fbdo;
+
+FirebaseAuth auth;
+FirebaseConfig config;
 
 // RGB
 const int RED_PIN = 4;
@@ -28,6 +44,21 @@ const int SERVO_PIN = 15;
 int currentAngle = 0;
 
 void setup() {
+  WiFi.begin(SSID, PASSWORD);
+  Serial.println("Connecting");
+  while(WiFi.status() != WL_CONNECTED) { 
+    delay(500);
+  }
+
+  config.api_key = API_KEY;
+
+  auth.user.email = USER_EMAIL;
+  auth.user.password = USER_PASSWORD;
+
+  config.database_url = FIREBASE_URL;
+
+  Firebase.begin(&config, &auth);
+
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
@@ -39,11 +70,20 @@ void setup() {
   motor.attach(SERVO_PIN);
   Serial.begin(115200);
   setColor(50, 0, 150); // Example, to be modified based on user preference
+
+
 }
 
 void loop() {
 
-  digitalWrite(FAN_PIN, blowing ? HIGH : LOW);
+    // CHECK WIFI, FIREBASE AND STATUS OF THE DEVICE
+  if(WiFi.status() == WL_CONNECTED && Firebase.ready() && resultStatus.boolValue){
+    digitalWrite(FAN_PIN, HIGH);
+  }else{
+    digitalWrite(FAN_PIN, LOW);
+  }
+
+  // digitalWrite(FAN_PIN, blowing ? HIGH : LOW);
 
   brightness = calculateLightingAdjustment();
   inTemp = getIndoorsTemperature();
@@ -123,7 +163,7 @@ void adjustBlinds(String command) {
   } else if (command == "lower") {
     currentAngle = 0;
   } else if (command == "fan") {
-    blowing = !blowing;
+    //blowing = !blowing;
   }
   motor.write(currentAngle);
 }
