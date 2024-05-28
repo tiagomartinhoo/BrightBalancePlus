@@ -19,7 +19,7 @@ unsigned long sendDataPrevMillis = 0;
 const int RED_PIN = 4;
 const int GREEN_PIN = 5;
 const int BLUE_PIN = 6;
-int redValue, greenValue, blueValue;
+int redValue, greenValue, blueValue, rgbState = 0;
 
 // Light
 const int OUT_PHOTO_PIN = 2;
@@ -35,7 +35,6 @@ float outTemp, inTemp;
 
 // Fan
 const int FAN_PIN = 1;
-//bool blowing = false;
 
 // Servo
 Servo motor;
@@ -56,12 +55,9 @@ void setup() {
   pinMode(FAN_PIN, OUTPUT);
   motor.attach(SERVO_PIN);
 
-  // Setup color as an example... to be modified based on user preference
-  setColor(50, 0, 150);
-
   // Connect to WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("Connecting to WiFi");
+  Serial.println("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(300);
@@ -88,15 +84,43 @@ void loop() {
   if (Firebase.ready() && (millis() - sendDataPrevMillis > 1000 || sendDataPrevMillis == 0)) {
     sendDataPrevMillis = millis();
 
+    // Listening to RGB turning ON or OFF
+    if (!Firebase.RTDB.getInt(&fbdo, "/rgb/state", &rgbState)) {
+      Serial.println(fbdo.errorReason().c_str());
+    }
+
+    // Listening to RGB color changes
+    int rgbUpdate;
+    if (Firebase.RTDB.getInt(&fbdo, "/rgb/color/update", &rgbUpdate) && rgbUpdate) {
+      if (Firebase.RTDB.getInt(&fbdo, "/rgb/color/red", &redValue) &&
+      Firebase.RTDB.getInt(&fbdo, "/rgb/color/green", &greenValue) &&
+      Firebase.RTDB.getInt(&fbdo, "/rgb/color/blue", &blueValue)) {
+        Firebase.RTDB.setInt(&fbdo, "/rgb/color/update", 0);
+      }
+    } else {
+      Serial.println(fbdo.errorReason().c_str());
+    }
+
+    // Listening to fan turning ON or OFF
     int fanState;
     if (Firebase.RTDB.getInt(&fbdo, "/fan/state", &fanState)) {
       digitalWrite(FAN_PIN, fanState);
     } else {
       Serial.println(fbdo.errorReason().c_str());
     }
+
+    // Listening to blinds opening or shutting down
+    int blindsUpdate;
+    if (Firebase.RTDB.getInt(&fbdo, "/blinds/update", &blindsUpdate) && blindsUpdate) {
+      if (Firebase.RTDB.getInt(&fbdo, "/blinds/percentage", &currentAngle)) {
+        currentAngle = map(currentAngle, 0, 100, 0, 180);
+        motor.write(currentAngle);
+        Firebase.RTDB.setInt(&fbdo, "/blinds/update", 0);
+      }
+    } else {
+      Serial.println(fbdo.errorReason().c_str());
+    }
   }
-  
-  //digitalWrite(FAN_PIN, blowing ? HIGH : LOW);
 
   brightness = calculateLightingAdjustment();
   inTemp = getIndoorsTemperature();
@@ -124,24 +148,23 @@ void loop() {
     Serial.println("It is nighttime");
   }
 
-  if (Serial.available()) {
-    String command = Serial.readStringUntil('\n');
-    adjustBlinds(command);
-  }
-
-  analogWrite(RED_PIN, (redValue * brightness) / 255);
-  analogWrite(GREEN_PIN, (greenValue * brightness) / 255);
-  analogWrite(BLUE_PIN, (blueValue * brightness) / 255);
+  emit(rgbState);
   
   Serial.println("-----------------------------");
   delay(1000);
   
 }
 
-void setColor(int red, int green, int blue) {
-  redValue = red;
-  greenValue = green;
-  blueValue = blue;
+void emit(int state) {
+  if (state) {
+    analogWrite(RED_PIN, (redValue * brightness) / 255);
+    analogWrite(GREEN_PIN, (greenValue * brightness) / 255);
+    analogWrite(BLUE_PIN, (blueValue * brightness) / 255);
+  } else {
+    analogWrite(RED_PIN, LOW);
+    analogWrite(GREEN_PIN, LOW);
+    analogWrite(BLUE_PIN, LOW);
+  }
 }
 
 int calculateLightingAdjustment() {
@@ -164,19 +187,4 @@ float getOutdoorsTemperature() {
   int reading = analogRead(OUT_THERM_PIN);
   float celsius = 1 / (log(1 / (8191. / reading - 1)) / BETA + 1.0 / 298.15) - 273.15 + 10.0; // +10ºC as error compensation
   return celsius;  
-}
-
-void adjustBlinds(String command) {
-  command.trim();
-  command.toLowerCase();
-  if (command == "raise") {
-    currentAngle = 180;
-  } else if (command == "mid") {
-    currentAngle = 90;
-  } else if (command == "lower") {
-    currentAngle = 0;
-  } /*else if (command == "fan") {
-    blowing = !blowing;
-  }*/
-  motor.write(currentAngle);
 }
