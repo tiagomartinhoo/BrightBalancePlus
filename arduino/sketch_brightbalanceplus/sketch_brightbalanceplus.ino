@@ -1,17 +1,19 @@
-#include <ESP32Servo.h>
 #include <WiFi.h>
 #include <Firebase_ESP_Client.h>
+#include <ESP32Servo.h>
 
-#define FIREBASE_HOST "bright-balance-plus-default-rtdb.europe-west1.firebasedatabase.app/" 
-#define FIREBASE_AUTH "UvNo9qRcjbJKMwsBIH02LJ3Q4whRMvPJyZdIaCsn" 
-#define WIFI_SSID "Tiago’s iPhone" 
-#define WIFI_PASSWORD "123456789a"
-#define USER_EMAIL "t.martinho@campus.fct.unl.pt"
-#define USER_PASSWORD "Tigas2002"
+#define API_KEY "AIzaSyAYb6AzYYBf8jgmgK253XZK4uNz0GEuM_w"
+#define DATABASE_URL "https://brightbalance-b0412-default-rtdb.europe-west1.firebasedatabase.app/"
+#define WIFI_SSID "Stabs A35"
+#define WIFI_PASSWORD "4instance"
+#define USER_EMAIL "aas.correia@campus.fct.unl.pt"
+#define USER_PASSWORD "scmu2324"
 
+// Firebase
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
+unsigned long sendDataPrevMillis = 0;
 
 // RGB
 const int RED_PIN = 4;
@@ -33,7 +35,7 @@ float outTemp, inTemp;
 
 // Fan
 const int FAN_PIN = 1;
-bool blowing = false;
+//bool blowing = false;
 
 // Servo
 Servo motor;
@@ -41,23 +43,9 @@ const int SERVO_PIN = 15;
 int currentAngle = 0;
 
 void setup() {
+
+  // Initialize Pins
   Serial.begin(115200);
-  // Initialize WiFi
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.println("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) { 
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nConnected to WiFi");
-
-  // Initialize Firebase
-  config.api_key = FIREBASE_AUTH;
-  auth.user.email = USER_EMAIL;
-  auth.user.password = USER_PASSWORD;
-  config.database_url = FIREBASE_HOST;
-  Firebase.begin(&config, &auth);
-
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
@@ -67,22 +55,48 @@ void setup() {
   pinMode(IN_THERM_PIN, INPUT);
   pinMode(FAN_PIN, OUTPUT);
   motor.attach(SERVO_PIN);
+
+  // Setup color as an example... to be modified based on user preference
+  setColor(50, 0, 150);
+
+  // Connect to WiFi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.println("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+
+  // Connect to Firebase
+  config.api_key = API_KEY;
+  auth.user.email = USER_EMAIL;
+  auth.user.password = USER_PASSWORD;
+  config.database_url = DATABASE_URL;
+  Firebase.reconnectNetwork(true);
+  fbdo.setBSSLBufferSize(4096, 1024);
+  fbdo.setResponseSize(2048);
+  Firebase.begin(&config, &auth);
+  Firebase.setDoubleDigits(5);
+  config.timeout.serverResponse = 10 * 1000;
   
-  setColor(50, 0, 150); // Example, to be modified based on user preference
-
-
 }
 
 void loop() {
 
-    // CHECK WIFI, FIREBASE AND STATUS OF THE DEVICE
-  if(WiFi.status() == WL_CONNECTED && Firebase.ready()){
-    digitalWrite(FAN_PIN, HIGH);
-  }else{
-    digitalWrite(FAN_PIN, LOW);
-  }
+  if (Firebase.ready() && (millis() - sendDataPrevMillis > 1000 || sendDataPrevMillis == 0)) {
+    sendDataPrevMillis = millis();
 
-  // digitalWrite(FAN_PIN, blowing ? HIGH : LOW);
+    int fanState;
+    if (Firebase.RTDB.getInt(&fbdo, "/fan/state", &fanState)) {
+      digitalWrite(FAN_PIN, fanState);
+    } else {
+      Serial.println(fbdo.errorReason().c_str());
+    }
+  }
+  
+  //digitalWrite(FAN_PIN, blowing ? HIGH : LOW);
 
   brightness = calculateLightingAdjustment();
   inTemp = getIndoorsTemperature();
@@ -161,8 +175,8 @@ void adjustBlinds(String command) {
     currentAngle = 90;
   } else if (command == "lower") {
     currentAngle = 0;
-  } else if (command == "fan") {
-    //blowing = !blowing;
-  }
+  } /*else if (command == "fan") {
+    blowing = !blowing;
+  }*/
   motor.write(currentAngle);
 }
