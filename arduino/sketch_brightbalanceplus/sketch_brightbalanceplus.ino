@@ -3,7 +3,8 @@
 #include <ESP32Servo.h>
 
 #define API_KEY "AIzaSyAYb6AzYYBf8jgmgK253XZK4uNz0GEuM_w"
-#define DATABASE_URL "https://brightbalance-b0412-default-rtdb.europe-west1.firebasedatabase.app/"
+#define PROJECT_ID "brightbalance-b0412"
+#define DATABASE_URL "brightbalance-b0412.firebaseapp.com"
 #define WIFI_SSID "Stabs A35"
 #define WIFI_PASSWORD "4instance"
 #define USER_EMAIL "aas.correia@campus.fct.unl.pt"
@@ -13,25 +14,23 @@
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
-unsigned long sendDataPrevMillis = 0;
 
 // RGB
 const int RED_PIN = 4;
 const int GREEN_PIN = 5;
 const int BLUE_PIN = 6;
-int redValue, greenValue, blueValue, rgbState = 0;
 
 // Light
 const int OUT_PHOTO_PIN = 2;
 const int IN_PHOTO_PIN = 7;
-const int THRESHOLD = 1000;
-int brightness, indoorLightLevel, outdoorLightLevel;
+int outdoorLightLevel, indoorLightLevel;
+int brightness;
 
 // Temperature
 const int OUT_THERM_PIN = 3;
 const int IN_THERM_PIN = 8;
 const float BETA = 3950;
-float outTemp, inTemp;
+float outdoorTemperature, indoorTemperature;
 
 // Fan
 const int FAN_PIN = 1;
@@ -42,9 +41,10 @@ const int SERVO_PIN = 15;
 int currentAngle = 0;
 
 void setup() {
+  
+  Serial.begin(115200);
 
   // Initialize Pins
-  Serial.begin(115200);
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
@@ -62,109 +62,110 @@ void setup() {
     Serial.print(".");
     delay(300);
   }
-  Serial.println("Connected with IP: ");
-  Serial.println(WiFi.localIP());
+  Serial.printf("Connected with IP: %s\n", WiFi.localIP());
 
   // Connect to Firebase
   config.api_key = API_KEY;
   auth.user.email = USER_EMAIL;
   auth.user.password = USER_PASSWORD;
   config.database_url = DATABASE_URL;
-  Firebase.reconnectNetwork(true);
-  fbdo.setBSSLBufferSize(4096, 1024);
-  fbdo.setResponseSize(2048);
   Firebase.begin(&config, &auth);
-  Firebase.setDoubleDigits(5);
-  config.timeout.serverResponse = 10 * 1000;
   
 }
 
 void loop() {
 
-  if (Firebase.ready() && (millis() - sendDataPrevMillis > 1000 || sendDataPrevMillis == 0)) {
-    sendDataPrevMillis = millis();
-
-    // Listening to RGB turning ON or OFF
-    if (!Firebase.RTDB.getInt(&fbdo, "/rgb/state", &rgbState)) {
-      Serial.println(fbdo.errorReason().c_str());
-    }
-
-    // Listening to RGB color changes
-    int rgbUpdate;
-    if (Firebase.RTDB.getInt(&fbdo, "/rgb/color/update", &rgbUpdate) && rgbUpdate) {
-      if (Firebase.RTDB.getInt(&fbdo, "/rgb/color/red", &redValue) &&
-      Firebase.RTDB.getInt(&fbdo, "/rgb/color/green", &greenValue) &&
-      Firebase.RTDB.getInt(&fbdo, "/rgb/color/blue", &blueValue)) {
-        Firebase.RTDB.setInt(&fbdo, "/rgb/color/update", 0);
-      }
-    } else {
-      Serial.println(fbdo.errorReason().c_str());
-    }
-
-    // Listening to fan turning ON or OFF
-    int fanState;
-    if (Firebase.RTDB.getInt(&fbdo, "/fan/state", &fanState)) {
-      digitalWrite(FAN_PIN, fanState);
-    } else {
-      Serial.println(fbdo.errorReason().c_str());
-    }
-
-    // Listening to blinds opening or shutting down
-    int blindsUpdate;
-    if (Firebase.RTDB.getInt(&fbdo, "/blinds/update", &blindsUpdate) && blindsUpdate) {
-      if (Firebase.RTDB.getInt(&fbdo, "/blinds/percentage", &currentAngle)) {
-        currentAngle = map(currentAngle, 0, 100, 0, 180);
-        motor.write(currentAngle);
-        Firebase.RTDB.setInt(&fbdo, "/blinds/update", 0);
-      }
-    } else {
-      Serial.println(fbdo.errorReason().c_str());
-    }
-  }
-
   brightness = calculateLightingAdjustment();
-  inTemp = getIndoorsTemperature();
-  outTemp = getOutdoorsTemperature();
-  
-  Serial.print("Temperature indoors: ");
-  Serial.print(inTemp);
-  Serial.println(" °C");
-  Serial.print("Temperature outside: ");
-  Serial.print(outTemp);
-  Serial.println(" °C");
-
-  if (inTemp > outTemp) {
-    Serial.println("It appears to be warmer indoors");
-  } else if (inTemp < outTemp) {
-    Serial.println("It appears to be warmer outside");
-  } else {
-    Serial.println("It is just as warm inside and outside");
-  }
-
   getOutdoorsLighting();
-  if (outdoorLightLevel > THRESHOLD) {
-    Serial.println("It is daytime");
+  indoorTemperature = getIndoorsTemperature();
+  outdoorTemperature = getOutdoorsTemperature();
+
+  Serial.println("\n----- Readings -----\n");
+
+  // Update lighting readings
+  String documentPathLight = "readings/lighting";
+  FirebaseJson contentLight;
+  contentLight.set("fields/indoor/integerValue", String(indoorLightLevel).c_str());
+  contentLight.set("fields/outdoor/integerValue", String(outdoorLightLevel).c_str());
+  if (Firebase.Firestore.patchDocument(&fbdo, PROJECT_ID, "", documentPathLight.c_str(), contentLight.raw(), "indoor,outdoor")) {
+    //Serial.printf("\n%s\n", fbdo.payload().c_str());
+    Serial.println("Lighting readings were sent to the database");
   } else {
-    Serial.println("It is nighttime");
+    Serial.println(fbdo.errorReason().c_str());
   }
 
-  emit(rgbState);
+  // Update temperature readings
+  String documentPathTemp = "readings/temperature";
+  FirebaseJson contentTemp;
+  contentTemp.set("fields/indoor/doubleValue", String(indoorTemperature).c_str());
+  contentTemp.set("fields/outdoor/doubleValue", String(outdoorTemperature).c_str());
+  if (Firebase.Firestore.patchDocument(&fbdo, PROJECT_ID, "", documentPathTemp.c_str(), contentTemp.raw(), "indoor,outdoor")) {
+    //Serial.printf("\n%s\n", fbdo.payload().c_str());
+    Serial.println("Temperature readings were sent to the database");
+  } else {
+    Serial.println(fbdo.errorReason().c_str());
+  }
+
+  Serial.println("----- Devices -----\n");
+
+  // Get blinds level
+  String documentPathBlinds = "devices/blinds";
+  if (Firebase.Firestore.getDocument(&fbdo, PROJECT_ID, "", documentPathBlinds.c_str())) {
+    FirebaseJson contentBlinds;
+    FirebaseJsonData blindsLevel;
+    contentBlinds.setJsonData(fbdo.payload().c_str());
+    contentBlinds.get(blindsLevel, "fields/percentage/integerValue");
+    // Raise or lower blinds according to state
+    Serial.printf("\nBlinds are leveled at %d%%\n", blindsLevel.intValue);
+    currentAngle = map(blindsLevel.intValue, 0, 100, 0, 180);
+    motor.write(currentAngle);
+  } else {
+    Serial.println(fbdo.errorReason().c_str());
+  }
   
-  Serial.println("-----------------------------");
+  // Get fan state
+  String documentPathFan = "devices/fan";
+  if (Firebase.Firestore.getDocument(&fbdo, PROJECT_ID, "", documentPathFan.c_str())) {
+    FirebaseJson contentFan;
+    FirebaseJsonData fanState;
+    contentFan.setJsonData(fbdo.payload().c_str());
+    contentFan.get(fanState, "fields/state/booleanValue");
+    // Turn fan ON or OFF according to state
+    Serial.printf("Fan is turned on? %s\n", fanState.boolValue ? "Yes" : "No");
+    digitalWrite(FAN_PIN, fanState.boolValue);
+  } else {
+    Serial.println(fbdo.errorReason().c_str());
+  }
+
+  // Get RGB state
+  String documentPathRGB = "devices/rgb";
+  if (Firebase.Firestore.getDocument(&fbdo, PROJECT_ID, "", documentPathRGB.c_str())) {
+    FirebaseJson contentRGB;
+    FirebaseJsonData rgbState, rgbR, rgbG, rgbB;
+    contentRGB.setJsonData(fbdo.payload().c_str());
+    contentRGB.get(rgbState, "fields/state/booleanValue");
+    contentRGB.get(rgbR, "fields/red/integerValue");
+    contentRGB.get(rgbG, "fields/green/integerValue");
+    contentRGB.get(rgbB, "fields/blue/integerValue");
+    // Turn RGB ON or OFF according to state and color values
+    Serial.printf("RGB is turned on? %s\n", rgbState.boolValue ? "Yes" : "No");
+    if (rgbState.boolValue == 1) {
+      Serial.printf("Decimal code is RGB(%d, %d, %d)\n", rgbR.intValue, rgbG.intValue, rgbB.intValue);
+      analogWrite(RED_PIN, (rgbR.intValue * brightness) / 255);
+      analogWrite(GREEN_PIN, (rgbG.intValue * brightness) / 255);
+      analogWrite(BLUE_PIN, (rgbB.intValue * brightness) / 255);
+    } else {
+      analogWrite(RED_PIN, LOW);
+      analogWrite(GREEN_PIN, LOW);
+      analogWrite(BLUE_PIN, LOW);
+    }
+  } else {
+    Serial.println(fbdo.errorReason().c_str());
+  }
+
+  Serial.println("----- Looping -----\n");
   delay(1000);
   
-}
-
-void emit(int state) {
-  if (state) {
-    analogWrite(RED_PIN, (redValue * brightness) / 255);
-    analogWrite(GREEN_PIN, (greenValue * brightness) / 255);
-    analogWrite(BLUE_PIN, (blueValue * brightness) / 255);
-  } else {
-    analogWrite(RED_PIN, LOW);
-    analogWrite(GREEN_PIN, LOW);
-    analogWrite(BLUE_PIN, LOW);
-  }
 }
 
 int calculateLightingAdjustment() {
