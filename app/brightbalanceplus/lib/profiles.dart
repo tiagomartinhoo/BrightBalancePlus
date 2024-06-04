@@ -15,6 +15,11 @@ class _ProfilesState extends State<Profiles> {
 
   bool editProfiles = false;
 
+  @override
+  void initState() {
+    super.initState();
+  }
+
   final ButtonStyle flatButtonStyle = TextButton.styleFrom(
     foregroundColor: Colors.white,
     minimumSize: const Size(250, 50),
