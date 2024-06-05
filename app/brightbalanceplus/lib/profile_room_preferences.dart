@@ -211,6 +211,28 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
           'useFan': activeMood.useFan,
         });
 
+
+        DocumentSnapshot blindsSnapshot = await FirebaseFirestore.instance
+            .collection('devices')
+            .doc("blinds")
+            .get();
+
+        int blindValue = blindsSnapshot.get("percentage");
+
+        if(blindValue != sliderValue.round() && sliderValue.round() != activeMood.blindsRotation){
+          await FirebaseFirestore.instance
+              .collection('devices')
+              .doc("blinds")
+              .update({'percentage': sliderValue.round()});
+        }
+
+        activeMood.blindsRotation = sliderValue.round();
+
+        await FirebaseFirestore.instance
+            .collection('devices')
+            .doc("rgb")
+            .update({'blue': blue, 'green': green, 'red': red});
+
         return true;
       }
     } else {
@@ -223,6 +245,13 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
         "useBlinds": activeMood.useBlinds,
         "roomId": room.id
       };
+
+      await FirebaseFirestore.instance
+          .collection('devices')
+          .doc("blinds")
+          .update({
+        'percentage': activeMood.blindsRotation
+      });
 
       await FirebaseFirestore.instance.collection('moods').add(moodToAdd);
 
