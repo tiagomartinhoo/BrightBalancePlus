@@ -71,11 +71,11 @@ void listenToFirebaseCollection(NotificationService notificationService) {
         bool fanValue = fanSnapshot.get("state");
 
         if(activeMood.useBlinds){
-          if (outdoorValue < 30 && blindsValue > 0) {
+          if (outdoorValue < 1500 && blindsValue > 0) {
             titleText = "It is getting dark outside. ";
             bodyText = "Want to fully close the blinds?" ;
             payloadText = "Close Blinds ";
-          } else if (outdoorValue > 60 && blindsValue < 100) {
+          } else if (outdoorValue > 1500 && blindsValue < 100) {
             titleText = "It is getting bright outside. ";
             bodyText = "Want to fully open the blinds? ";
             payloadText = "Open Blinds ";
