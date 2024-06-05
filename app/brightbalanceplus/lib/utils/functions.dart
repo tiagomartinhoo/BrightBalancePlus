@@ -124,7 +124,7 @@ void listenToFirebaseCollection(NotificationService notificationService) {
         }
 
         try {
-          if(variableToUpdate == 0){
+          if(variableToUpdate == 0 && titleText.isNotEmpty){
             variableToUpdate++;
             if(!payloadText.contains("Blinds")){
               Notification not = Notification(title: titleText, body: bodyText, payload: payloadText);
@@ -142,13 +142,14 @@ void listenToFirebaseCollection(NotificationService notificationService) {
 
             notifications.clear();
 
-            timer?.cancel();
-            timer = Timer.periodic(const Duration(seconds: 30), (timer) {
-              variableToUpdate = 0;
-              finishLine = 0;
-            });
-
           }
+
+          timer?.cancel();
+          timer = Timer.periodic(const Duration(seconds: 25), (timer) {
+            variableToUpdate = 0;
+            finishLine = 0;
+          });
+
         } catch (e) {
           print("Error showing local notification: $e");
         }
