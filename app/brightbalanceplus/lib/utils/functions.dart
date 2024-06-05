@@ -142,16 +142,16 @@ void listenToFirebaseCollection(NotificationService notificationService) {
 
             notifications.clear();
 
+            timer?.cancel();
+            timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+              variableToUpdate = 0;
+              finishLine = 0;
+            });
+
           }
         } catch (e) {
           print("Error showing local notification: $e");
-        };
-
-        timer?.cancel();
-        timer = Timer.periodic(const Duration(seconds: 30), (timer) {
-          variableToUpdate = 0;
-          finishLine = 0;
-        });
+        }
 
       }
     }
