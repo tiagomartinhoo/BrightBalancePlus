@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:brightbalanceplus/Dao/notification.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../Dao/mood.dart';
 import '../Server/api.dart';
 import '../Services/notification_service.dart';
 
@@ -22,50 +24,135 @@ Future<void> requestNotificationPermission() async {
   }
 }
 
+int getIntValue(dynamic value){
+  int resValue;
+  if (value is double) {
+    resValue = value.toInt();
+  } else if (value is int) {
+    resValue = value;
+  } else {
+    resValue = 0;
+  }
+
+  return resValue;
+}
+
 void listenToFirebaseCollection(NotificationService notificationService) {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   Timer? timer;
-  int variableToUpdate = 0;
+  int variableToUpdate = 0, finishLine = 0;
+  List<Notification> notifications = [];
   firestore.collection('readings').snapshots().listen((querySnapshot) async {
     for (var change in querySnapshot.docChanges) {
-      if (change.type == DocumentChangeType.modified) {
+      if (change.type == DocumentChangeType.modified && finishLine == 0) {
+        finishLine++;
 
-        int value = change.doc.get("outdoor");
+        dynamic indoor = change.doc.get("indoor");
 
-        String titleText = "Title";
-        String bodyText = "Body";
+        dynamic outdoor = change.doc.get("outdoor");
 
-        switch (value) {
-          case < 35:
-            titleText = "It is getting dark outside.";
-            bodyText = "Want to close the blinds?";
-            break;
-          case > 60:
-            // Maybe Open
-            break;
-          default:
-          // Do something or not
+        int indoorValue = getIntValue(indoor);
+        int outdoorValue = getIntValue(outdoor);
+
+        String titleText = "";
+        String bodyText = "";
+        String payloadText = "";
+
+        Mood? activeMood = await getActiveMood();
+
+        if(activeMood == null){
+          return;
+        }
+
+        DocumentSnapshot blindsSnapshot = await FirebaseFirestore.instance.collection('devices').doc("blinds").get();
+        DocumentSnapshot fanSnapshot = await FirebaseFirestore.instance.collection('devices').doc("fan").get();
+
+        int blindsValue = blindsSnapshot.get("percentage");
+        bool fanValue = fanSnapshot.get("state");
+
+        if(activeMood.useBlinds){
+          if (outdoorValue < 30 && blindsValue > 0) {
+            titleText = "It is getting dark outside. ";
+            bodyText = "Want to fully close the blinds?" ;
+            payloadText = "Close Blinds ";
+          } else if (outdoorValue > 60 && blindsValue < 100) {
+            titleText = "It is getting bright outside. ";
+            bodyText = "Want to fully open the blinds? ";
+            payloadText = "Open Blinds ";
+          } else if (change.doc.id.contains("temperature")){
+            if(indoorValue > 28 && indoorValue - outdoorValue >= 2 && blindsValue < 100){
+              titleText = "It is getting hot inside.";
+              bodyText = "Since it is colder outside, want to open the blinds?";
+              payloadText = "Open Blinds $blindsValue";
+            }else if(outdoorValue > 28 && outdoorValue - indoorValue >= 2 && blindsValue > 0){
+              titleText = "It is getting hot outside.";
+              bodyText = "Since it is colder inside, want to close the blinds?";
+              payloadText = "Close Blinds $blindsValue";
+            }
+          }
+        }
+
+        if(payloadText.isNotEmpty){
+          Notification not = Notification(title: titleText, body: bodyText, payload: payloadText);
+          notifications.add(not);
+        }
+
+        if(activeMood.useFan && change.doc.id.contains("temperature")){
+          if(indoorValue < 25 && fanValue){
+            titleText = "It is getting cold inside.";
+            bodyText = "Want to turn off the fan?";
+            payloadText = "Stop Fan ";
+          }else if(indoorValue >= 25 && !fanValue){
+            titleText = "It is getting hot inside.";
+            bodyText = "Want to turn on the fan?";
+            payloadText = "Start Fan ";
+          }
+        }
+
+        bool flag = payloadText.contains("Fan");
+
+        if(change.doc.id.contains("temperature")){
+          if(indoorValue < 18){
+            titleText += (!flag ? "It is getting cold inside." : "");
+            (!flag ? bodyText = "Want to change to a warmer color?" : bodyText = "Want to turn off the fan and change to a warmer color?");
+            payloadText += "Warmer Color";
+          }else if(indoorValue >= 30){
+            titleText += (!flag ? "It is getting hot inside." : "");
+            (!flag ? bodyText = "Want to change to a cooler color?" : bodyText = "Want to turn on the fan and change to a cooler color?");
+            payloadText += "Cooler Color";
+          }
         }
 
         try {
-          // Display the in-app notification
-          if(variableToUpdate == 0 && await getActiveMoodBlindsValue() > 0){
+          if(variableToUpdate == 0){
             variableToUpdate++;
-            notificationService.showLocalNotification(
-                id: 1,
-                title: titleText,
-                body: bodyText,
-                payload: "Time to close the blinds?");
-          }
+            if(!payloadText.contains("Blinds")){
+              Notification not = Notification(title: titleText, body: bodyText, payload: payloadText);
+              notifications.add(not);
+            }
 
-          timer?.cancel();
-          timer = Timer.periodic(const Duration(seconds: 5), (timer) {
-            variableToUpdate = 0;
-          });
+            for (int i = 0; i < notifications.length; i++) {
+              Notification notification = notifications[i];
+              await notificationService.showLocalNotification(
+                  id: i + 1,
+                  title: notification.title,
+                  body: notification.body,
+                  payload: notification.payload);
+            }
+
+            notifications.clear();
+
+          }
         } catch (e) {
-          // Handle any errors
           print("Error showing local notification: $e");
-        }
+        };
+
+        timer?.cancel();
+        timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+          variableToUpdate = 0;
+          finishLine = 0;
+        });
+
       }
     }
   });

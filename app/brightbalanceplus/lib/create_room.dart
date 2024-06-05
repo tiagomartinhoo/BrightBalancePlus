@@ -55,7 +55,7 @@ class _CreateRoomState extends State<CreateRoom> {
         "lightColor": [0, 0, 0],
         "isActive": false,
         "useFan": false,
-        "blindsRotation": 0,
+        "useBlinds": false,
         "roomId": doc.id};
 
     await FirebaseFirestore.instance.collection('moods').add(moodDefault);

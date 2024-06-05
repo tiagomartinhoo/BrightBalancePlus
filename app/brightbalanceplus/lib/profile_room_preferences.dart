@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:get_storage/get_storage.dart';
 
 import 'Dao/mood.dart';
 import 'Dao/room.dart';
@@ -58,16 +57,19 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
           id: element.id,
           name: element.get("name"),
           lightColor: element.get("lightColor"),
+          blindsRotation: element.get("blindsRotation"),
           isActive: element.get("isActive"),
           useFan: element.get("useFan"),
-          blindsRotation: element.get("blindsRotation"),
+          useBlinds: element.get("useBlinds"),
           roomId: element.id);
 
       if (moodsList.isEmpty) {
         activeMood = mood;
-        Color convertedColor = convertRGBToColor(mood.lightColor[0], mood.lightColor[1], mood.lightColor[2]);
+        Color convertedColor = convertRGBToColor(
+            mood.lightColor[0], mood.lightColor[1], mood.lightColor[2]);
         currentColor = convertedColor;
         sliderValue = activeMood.blindsRotation.toDouble();
+        pickerColor = convertedColor;
       }
 
       moodsList.add(mood);
@@ -77,9 +79,10 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
         id: "add Mood",
         name: "Add Mood",
         lightColor: [255, 255, 255],
+        blindsRotation: 0,
         isActive: false,
         useFan: false,
-        blindsRotation: 0,
+        useBlinds: false,
         roomId: "addMood");
 
     moodsList.add(mood);
@@ -119,6 +122,24 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
           .collection('moods')
           .doc(doc.id)
           .update({'isActive': active});
+
+      if (active) {
+        List<dynamic> lightColor = doc.get("lightColor");
+        await FirebaseFirestore.instance
+            .collection('devices')
+            .doc("rgb")
+            .update({
+          'red': lightColor[0],
+          'green': lightColor[1],
+          'blue': lightColor[2],
+          'state': active
+        });
+        await FirebaseFirestore.instance
+            .collection('devices')
+            .doc("blinds")
+            .update({
+          'percentage': doc.get("blindsRotation")});
+      }
 
       return true;
     }
@@ -186,6 +207,7 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
             .update({
           'lightColor': [red, green, blue],
           'blindsRotation': sliderValue.round(),
+          'useBlinds': activeMood.useBlinds,
           'useFan': activeMood.useFan,
         });
 
@@ -195,9 +217,10 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
       var moodToAdd = {
         "name": activeMood.name,
         "lightColor": [red, green, blue],
+        'blindsRotation': activeMood.blindsRotation,
         "isActive": activeMood.isActive,
         "useFan": activeMood.useFan,
-        "useBlinds": activeMood.blindsRotation,
+        "useBlinds": activeMood.useBlinds,
         "roomId": room.id
       };
 
@@ -349,41 +372,62 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
         height: 20,
       ),
       Column(
-        children: [
-          Text(
-            "${sliderValue.toInt()}%",
-            style: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+        Text(
+          "${sliderValue.toInt()}%",
+          style: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(
+          width: 300.0,
+          child: Slider(
+            min: 0.0,
+            max: 100.0,
+            value: sliderValue,
+            onChanged: (value) {
+              setState(() {
+                sliderValue = value;
+              });
+            },
           ),
-          SizedBox(
-            width: 300.0,
-            child: Slider(
-              min: 0.0,
-              max: 100.0,
-              value: sliderValue,
-              onChanged: (value) {
-                setState(() {
-                  sliderValue = value;
-                });
-              },
-            ),
-          ),
-        ],
-      ),
-      Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        ),
+      ]),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          const Text("Fan"),
-          SizedBox(
-            width: 30,
-            height: 25,
-            child: Checkbox(
-              value: activeMood.useFan,
-              onChanged: (newValue) {
-                setState(() {
-                  activeMood.useFan = newValue!;
-                });
-              },
-            ),
+          Column(
+            children: [
+              const Text("Fan"),
+              SizedBox(
+                width: 30,
+                height: 25,
+                child: Checkbox(
+                  value: activeMood.useFan,
+                  onChanged: (newValue) {
+                    setState(() {
+                      activeMood.useFan = newValue!;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          Column(
+            children: [
+              const Text("Blinds"),
+              SizedBox(
+                width: 30,
+                height: 25,
+                child: Checkbox(
+                  value: activeMood.useBlinds,
+                  onChanged: (newValue) {
+                    setState(() {
+                      activeMood.useBlinds = newValue!;
+                    });
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -395,7 +439,7 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
           style: flatButtonStyle,
           onPressed: () async {},
           child: const Text(
-            "Delete",
+            "Reset",
             style: TextStyle(color: Colors.white),
           ),
         ),
