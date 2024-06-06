@@ -71,22 +71,22 @@ void listenToFirebaseCollection(NotificationService notificationService) {
         bool fanValue = fanSnapshot.get("state");
 
         if(activeMood.useBlinds){
-          if (outdoorValue < 1500 && blindsValue > 0) {
-            titleText = "It is getting dark outside. ";
+          if (outdoorValue < 1250 && blindsValue > 0) {
+            titleText = "Lighting: Getting dark outside ";
             bodyText = "Want to fully close the blinds?" ;
             payloadText = "Close Blinds ";
-          } else if (outdoorValue > 1500 && blindsValue < 100) {
-            titleText = "It is getting bright outside. ";
+          } else if (outdoorValue > 1250 && blindsValue == 0) {
+            titleText = "Lighting: Getting bright outside ";
             bodyText = "Want to fully open the blinds? ";
             payloadText = "Open Blinds ";
           } else if (change.doc.id.contains("temperature")){
-            if(indoorValue > 28 && indoorValue - outdoorValue >= 2 && blindsValue < 100){
-              titleText = "It is getting hot inside.";
-              bodyText = "Since it is colder outside, want to open the blinds?";
+            if(indoorValue > 28 && indoorValue - outdoorValue >= 2 && blindsValue == 0){
+              titleText = "Climate: Getting hot inside";
+              bodyText = "Since it is cooler outside, want to open the blinds?";
               payloadText = "Open Blinds $blindsValue";
             }else if(outdoorValue > 28 && outdoorValue - indoorValue >= 2 && blindsValue > 0){
-              titleText = "It is getting hot outside.";
-              bodyText = "Since it is colder inside, want to close the blinds?";
+              titleText = "Climate: Getting hot outside";
+              bodyText = "Since it is cooler inside, want to close the blinds?";
               payloadText = "Close Blinds $blindsValue";
             }
           }
@@ -99,11 +99,11 @@ void listenToFirebaseCollection(NotificationService notificationService) {
 
         if(activeMood.useFan && change.doc.id.contains("temperature")){
           if(indoorValue < 25 && fanValue){
-            titleText = "It is getting cold inside.";
+            titleText = "Climate: Getting cool inside";
             bodyText = "Want to turn off the fan?";
             payloadText = "Stop Fan ";
           }else if(indoorValue >= 25 && !fanValue){
-            titleText = "It is getting hot inside.";
+            titleText = "Climate: Getting hot inside";
             bodyText = "Want to turn on the fan?";
             payloadText = "Start Fan ";
           }
@@ -113,11 +113,11 @@ void listenToFirebaseCollection(NotificationService notificationService) {
 
         if(change.doc.id.contains("temperature")){
           if(indoorValue < 18){
-            titleText += (!flag ? "It is getting cold inside." : "");
+            titleText += (!flag ? "Ambience: Getting cold inside" : "");
             (!flag ? bodyText = "Want to change to a warmer color?" : bodyText = "Want to turn off the fan and change to a warmer color?");
             payloadText += "Warmer Color";
           }else if(indoorValue >= 30){
-            titleText += (!flag ? "It is getting hot inside." : "");
+            titleText += (!flag ? "Ambience: Getting hot inside" : "");
             (!flag ? bodyText = "Want to change to a cooler color?" : bodyText = "Want to turn on the fan and change to a cooler color?");
             payloadText += "Cooler Color";
           }
