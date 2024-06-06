@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'Dao/room.dart';
@@ -15,13 +17,35 @@ class HouseRooms extends StatefulWidget {
 class _HouseRoomsState extends State<HouseRooms> {
 
   late Future<List<Room>> roomsFuture;
-
   bool editRooms = false;
+
+  Timer? timer;
+  List<Room>? currentRooms;
 
   @override
   void initState() {
     super.initState();
     roomsFuture = getRooms(widget.data);
+    timer = Timer.periodic(const Duration(seconds: 30), (Timer t) => _checkForUpdates());
+  }
+
+  Future<void> _checkForUpdates() async {
+    List<Room> updatedRooms = await getRooms(widget.data);
+    if (currentRooms == null || _hasTemperatureChanged(currentRooms!, updatedRooms)) {
+      setState(() {
+        currentRooms = updatedRooms;
+      });
+    }
+  }
+
+  bool _hasTemperatureChanged(List<Room> oldRooms, List<Room> newRooms) {
+    if (oldRooms.length != newRooms.length) return true;
+    for (int i = 0; i < oldRooms.length; i++) {
+      if (oldRooms[i].temperature != newRooms[i].temperature) {
+        return true;
+      }
+    }
+    return false;
   }
 
   final ButtonStyle flatButtonStyle = TextButton.styleFrom(
@@ -53,7 +77,7 @@ class _HouseRoomsState extends State<HouseRooms> {
                       color: Colors.white,
                     );
                   } else if (snapshot.hasData){
-                    final rooms = snapshot.data!;
+                    final rooms = currentRooms ?? snapshot.data!;
                     return buildRooms(rooms);
                   }else{
                     return const Text("No rooms data");
@@ -86,7 +110,12 @@ class _HouseRoomsState extends State<HouseRooms> {
                 if (room.profileId == "None") {
                   Navigator.of(context).pushNamed('/create_room', arguments: widget.data);
                 } else {
-                  Navigator.of(context).pushNamed('/profile_room_preferences', arguments: room);
+                  if(!editRooms){
+                    Navigator.of(context).pushNamed('/profile_room_preferences', arguments: room);
+                  }else{
+                    Navigator.of(context).pushNamed('/edit_room', arguments: room);
+                  }
+
                 }
               },
               child: Column(
@@ -105,20 +134,6 @@ class _HouseRoomsState extends State<HouseRooms> {
                           color: room.temperature < 11 ? Colors.cyan : room.temperature < 31 ? Colors.orange : Colors.red)),
                   const SizedBox(height: 10),
                   Text(room.name),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if(room.profileId != "None")
-                        Image.asset(
-                          'assets/images/user.png',
-                          width: 10,
-                        ),
-                      const SizedBox(width: 5),
-                      if(room.profileId != "None")
-                        const Text("0", style: TextStyle(fontSize: 12)),
-                    ],
-                  )
                 ],
               ),
             ),
@@ -130,7 +145,7 @@ class _HouseRoomsState extends State<HouseRooms> {
       const SizedBox(
         height: 50,
       ),
-      if(rooms.length > 1)
+      if(rooms.length > 50)
       SizedBox(
         width: 200,
         height: 50,

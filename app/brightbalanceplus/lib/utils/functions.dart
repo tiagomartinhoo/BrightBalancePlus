@@ -37,21 +37,15 @@ int getIntValue(dynamic value){
   return resValue;
 }
 
-void listenToFirebaseCollection(NotificationService notificationService) {
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  Timer? timer;
-  int variableToUpdate = 0, finishLine = 0;
+void readingsLightListener(NotificationService notificationService, FirebaseFirestore firestore){
   List<Notification> notifications = [];
-  firestore.collection('readings').snapshots().listen((querySnapshot) async {
+  int variableToUpdate = 0;
+  firestore.collection('readingsLight').snapshots().listen((querySnapshot) async {
     for (var change in querySnapshot.docChanges) {
-      if (change.type == DocumentChangeType.modified && finishLine == 0) {
-        finishLine++;
-
-        dynamic indoor = change.doc.get("indoor");
+      if (change.type == DocumentChangeType.modified) {
 
         dynamic outdoor = change.doc.get("outdoor");
 
-        int indoorValue = getIntValue(indoor);
         int outdoorValue = getIntValue(outdoor);
 
         String titleText = "";
@@ -65,39 +59,97 @@ void listenToFirebaseCollection(NotificationService notificationService) {
         }
 
         DocumentSnapshot blindsSnapshot = await FirebaseFirestore.instance.collection('devices').doc("blinds").get();
-        DocumentSnapshot fanSnapshot = await FirebaseFirestore.instance.collection('devices').doc("fan").get();
 
         int blindsValue = blindsSnapshot.get("percentage");
-        bool fanValue = fanSnapshot.get("state");
 
         if(activeMood.useBlinds){
-          if (outdoorValue < 1250 && blindsValue > 0) {
-            titleText = "Lighting: Getting dark outside ";
-            bodyText = "Want to fully close the blinds?" ;
-            payloadText = "Close Blinds ";
-          } else if (outdoorValue > 1250 && blindsValue == 0) {
-            titleText = "Lighting: Getting bright outside ";
-            bodyText = "Want to fully open the blinds? ";
-            payloadText = "Open Blinds ";
-          } else if (change.doc.id.contains("temperature")){
-            if(indoorValue > 28 && indoorValue - outdoorValue >= 2 && blindsValue == 0){
-              titleText = "Climate: Getting hot inside";
-              bodyText = "Since it is cooler outside, want to open the blinds?";
-              payloadText = "Open Blinds $blindsValue";
-            }else if(outdoorValue > 28 && outdoorValue - indoorValue >= 2 && blindsValue > 0){
-              titleText = "Climate: Getting hot outside";
-              bodyText = "Since it is cooler inside, want to close the blinds?";
-              payloadText = "Close Blinds $blindsValue";
+            if (outdoorValue < 1250 && blindsValue > 0) {
+              titleText = "Lighting: Getting dark outside ";
+              bodyText = "Want to fully close the blinds?" ;
+              payloadText = "Close Blinds ";
+            } else if (outdoorValue > 1250 && blindsValue == 0) {
+              titleText = "Lighting: Getting bright outside ";
+              bodyText = "Want to fully open the blinds? ";
+              payloadText = "Open Blinds ";
             }
+        }
+
+        if(payloadText.isNotEmpty && notifications.isEmpty && variableToUpdate == 0){
+          Notification not = Notification(id: 1, title: titleText, body: bodyText, payload: payloadText);
+          notifications.add(not);
+        }
+      }
+    }
+
+    if(notifications.isNotEmpty && variableToUpdate == 0){
+      variableToUpdate++;
+      Future.delayed(const Duration(seconds: 20), () {
+        notifications.clear();
+        variableToUpdate = 0;
+      });
+      for (int i = 0; i < notifications.length; i++) {
+        Notification notification = notifications[i];
+        await notificationService.showLocalNotification(
+            id: notification.id,
+            title: notification.title,
+            body: notification.body,
+            payload: notification.payload);
+      }
+    }
+
+  });
+}
+
+void readingsTempListener(NotificationService notificationService, FirebaseFirestore firestore){
+  List<Notification> notifications = [];
+  int variableToUpdate = 0;
+  firestore.collection('readingsTemp').snapshots().listen((querySnapshot) async {
+    for (var change in querySnapshot.docChanges) {
+      if (change.type == DocumentChangeType.modified) {
+
+        dynamic indoor = change.doc.get("indoor");
+
+        dynamic outdoor = change.doc.get("outdoor");
+
+        int indoorValue = getIntValue(indoor);
+        int outdoorValue = getIntValue(outdoor);
+
+        QuerySnapshot result = await FirebaseFirestore.instance.collection('rooms').where('name', isEqualTo: "Demo Room").get();
+
+        await FirebaseFirestore.instance.collection('rooms').doc(result.docs.first.id).update({'temperature': indoorValue});
+
+        String titleText = "";
+        String bodyText = "";
+        String payloadText = "";
+
+        Mood? activeMood = await getActiveMood();
+
+        if(activeMood == null){
+          return;
+        }
+
+        if(activeMood.useBlinds){
+          DocumentSnapshot blindsSnapshot = await FirebaseFirestore.instance.collection('devices').doc("blinds").get();
+          int blindsValue = blindsSnapshot.get("percentage");
+          if(indoorValue > 28 && indoorValue - outdoorValue >= 2 && blindsValue == 0){
+            titleText = "Climate: Getting hot inside";
+            bodyText = "Since it is cooler outside, want to open the blinds?";
+            payloadText = "Open Blinds $blindsValue";
+          }else if(outdoorValue > 28 && outdoorValue - indoorValue >= 2 && blindsValue > 0){
+            titleText = "Climate: Getting hot outside";
+            bodyText = "Since it is cooler inside, want to close the blinds?";
+            payloadText = "Close Blinds $blindsValue";
           }
         }
 
-        if(payloadText.isNotEmpty){
-          Notification not = Notification(title: titleText, body: bodyText, payload: payloadText);
+        if(payloadText.isNotEmpty && notifications.isEmpty){
+          Notification not = Notification(id: 1, title: titleText, body: bodyText, payload: payloadText);
           notifications.add(not);
         }
 
-        if(activeMood.useFan && change.doc.id.contains("temperature")){
+        if(activeMood.useFan){
+          DocumentSnapshot fanSnapshot = await FirebaseFirestore.instance.collection('devices').doc("fan").get();
+          bool fanValue = fanSnapshot.get("state");
           if(indoorValue < 25 && fanValue){
             titleText = "Climate: Getting cool inside";
             bodyText = "Want to turn off the fan?";
@@ -111,50 +163,48 @@ void listenToFirebaseCollection(NotificationService notificationService) {
 
         bool flag = payloadText.contains("Fan");
 
-        if(change.doc.id.contains("temperature")){
-          if(indoorValue < 18){
-            titleText += (!flag ? "Ambience: Getting cold inside" : "");
-            (!flag ? bodyText = "Want to change to a warmer color?" : bodyText = "Want to turn off the fan and change to a warmer color?");
-            payloadText += "Warmer Color";
-          }else if(indoorValue >= 30){
-            titleText += (!flag ? "Ambience: Getting hot inside" : "");
-            (!flag ? bodyText = "Want to change to a cooler color?" : bodyText = "Want to turn on the fan and change to a cooler color?");
-            payloadText += "Cooler Color";
-          }
+        DocumentSnapshot rgbSnapshot = await FirebaseFirestore.instance.collection('devices').doc("rgb").get();
+
+        int r = rgbSnapshot.get("red"), b = rgbSnapshot.get("blue"), g = rgbSnapshot.get("green");
+
+        if(indoorValue < 18 && (r != 255 && g != 120 && b != 0)){
+          titleText += (!flag ? "Ambience: Getting cold inside" : "");
+          (!flag ? bodyText = "Want to change to a warmer color?" : bodyText = "Want to turn off the fan and change to a warmer color?");
+          payloadText += "Warmer Color";
+        }else if(indoorValue >= 30 && (r != 0 && g != 0 && b != 150)){
+          titleText += (!flag ? "Ambience: Getting hot inside" : "");
+          (!flag ? bodyText = "Want to change to a cooler color?" : bodyText = "Want to turn on the fan and change to a cooler color?");
+          payloadText += "Cooler Color";
         }
 
-        try {
-          if(variableToUpdate == 0 && titleText.isNotEmpty){
-            variableToUpdate++;
-            if(!payloadText.contains("Blinds")){
-              Notification not = Notification(title: titleText, body: bodyText, payload: payloadText);
-              notifications.add(not);
-            }
-
-            for (int i = 0; i < notifications.length; i++) {
-              Notification notification = notifications[i];
-              await notificationService.showLocalNotification(
-                  id: i + 1,
-                  title: notification.title,
-                  body: notification.body,
-                  payload: notification.payload);
-            }
-
-            notifications.clear();
-
-          }
-
-          timer?.cancel();
-          timer = Timer.periodic(const Duration(seconds: 25), (timer) {
-            variableToUpdate = 0;
-            finishLine = 0;
-          });
-
-        } catch (e) {
-          print("Error showing local notification: $e");
+        if(!payloadText.contains("Blinds") && payloadText.isNotEmpty){
+          Notification not = Notification(id: 2, title: titleText, body: bodyText, payload: payloadText);
+          notifications.add(not);
         }
-
       }
     }
+
+    if(notifications.isNotEmpty && variableToUpdate == 0){
+      variableToUpdate++;
+      Future.delayed(const Duration(seconds: 20), () {
+        notifications.clear();
+        variableToUpdate = 0;
+      });
+      for (int i = 0; i < notifications.length; i++) {
+        Notification notification = notifications[i];
+        await notificationService.showLocalNotification(
+            id: notification.id,
+            title: notification.title,
+            body: notification.body,
+            payload: notification.payload);
+      }
+    }
+
   });
+}
+
+void listenToFirebaseCollection(NotificationService notificationService) {
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  readingsLightListener(notificationService, firestore);
+  readingsTempListener(notificationService, firestore);
 }

@@ -3,6 +3,7 @@ import 'package:brightbalanceplus/utils/functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
 import 'firebase_options.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:get_storage/get_storage.dart';
@@ -12,7 +13,29 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await GetStorage.init();
   await requestNotificationPermission();
+  // exemplifyArduino();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   runApp(const MyApp());
+}
+
+Future<void> exemplifyArduino() async {
+  int lightIndoor = 150, lightOutdoor = 300;
+  int tempIndoor = 20, tempOutdoor = 30;
+  int aux1 = 0, aux2 = 0;
+  while(true){
+    await FirebaseFirestore.instance.collection('readingsLight').doc("lighting").update({'indoor': lightIndoor, 'outdoor': lightOutdoor});
+    await FirebaseFirestore.instance.collection('readingsTemp').doc("temperature").update({'indoor': tempIndoor, 'outdoor': tempOutdoor});
+    aux1 = lightIndoor;
+    lightIndoor = lightOutdoor;
+    lightOutdoor = aux1;
+    aux2 = tempIndoor;
+    tempIndoor = tempOutdoor;
+    tempOutdoor = aux2;
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
 }
 
 class MyApp extends StatelessWidget {

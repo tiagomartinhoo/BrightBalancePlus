@@ -53,6 +53,7 @@ class _CreateRoomState extends State<CreateRoom> {
     var moodDefault = {
         "name": "Default",
         "lightColor": [0, 0, 0],
+        "blindsRotation": 50,
         "isActive": false,
         "useFan": false,
         "useBlinds": false,
