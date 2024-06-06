@@ -83,7 +83,7 @@ void loop() {
   Serial.println("\n----- Readings -----\n");
 
   // Update lighting readings
-  String documentPathLight = "readings/lighting";
+  String documentPathLight = "readingsLight/lighting";
   FirebaseJson contentLight;
   contentLight.set("fields/indoor/integerValue", String(indoorLightLevel).c_str());
   contentLight.set("fields/outdoor/integerValue", String(outdoorLightLevel).c_str());
@@ -95,7 +95,7 @@ void loop() {
   }
 
   // Update temperature readings
-  String documentPathTemp = "readings/temperature";
+  String documentPathTemp = "readingsTemp/temperature";
   FirebaseJson contentTemp;
   contentTemp.set("fields/indoor/doubleValue", String(indoorTemperature).c_str());
   contentTemp.set("fields/outdoor/doubleValue", String(outdoorTemperature).c_str());
@@ -170,7 +170,7 @@ void loop() {
 
 int calculateLightingAdjustment() {
   indoorLightLevel = analogRead(IN_PHOTO_PIN);
-  int result = map(indoorLightLevel, 0, 4095, 255, 0);
+  int result = map(indoorLightLevel, 0, 1023, 255, 0);
   return constrain(result, 0, 255);
 }
 
