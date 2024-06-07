@@ -32,6 +32,15 @@ class _ProfilesState extends State<Profiles> {
 
   Future<List<Profile>> profilesFuture = getProfiles();
 
+  List<Profile> getAddProfileIfNoProfile() {
+    List<Profile> profilesList = <Profile>[];
+
+    Profile profile = Profile(id: "AddProfile", name: "Add Profile", priority: 0, accountId: "None", profilePicture: "add");
+    profilesList.add(profile);
+
+    return profilesList;
+  }
+
   static Future<List<Profile>> getProfiles() async {
     final box = GetStorage();
     String email = box.read('email');
@@ -83,7 +92,8 @@ class _ProfilesState extends State<Profiles> {
                     final profiles = snapshot.data!;
                     return buildProfiles(profiles);
                   }else{
-                    return const Text("No profiles data");
+                    final profiles = getAddProfileIfNoProfile();
+                    return buildProfiles(profiles);
                   }
                 }
             ),

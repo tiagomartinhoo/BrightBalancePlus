@@ -164,12 +164,8 @@ class _LoginState extends State<Login> {
                   ),
                 ),
               ),
-              TextButton(
-                onPressed: () {},
-                child: const Text(
-                    "Forgot Password",
-                    style: TextStyle(color: Colors.blue, fontSize: 15),
-                ),
+              const SizedBox(
+                height: 30,
               ),
               ElevatedButton(
                 style: flatButtonStyle,

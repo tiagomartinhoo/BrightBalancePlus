@@ -41,6 +41,13 @@ void readingsLightListener(NotificationService notificationService, FirebaseFire
   List<Notification> notifications = [];
   int variableToUpdate = 0;
   firestore.collection('readingsLight').snapshots().listen((querySnapshot) async {
+
+    Mood? activeMood = await getActiveMood();
+
+    if(activeMood == null){
+      return;
+    }
+
     for (var change in querySnapshot.docChanges) {
       if (change.type == DocumentChangeType.modified) {
 
@@ -51,12 +58,6 @@ void readingsLightListener(NotificationService notificationService, FirebaseFire
         String titleText = "";
         String bodyText = "";
         String payloadText = "";
-
-        Mood? activeMood = await getActiveMood();
-
-        if(activeMood == null){
-          return;
-        }
 
         DocumentSnapshot blindsSnapshot = await FirebaseFirestore.instance.collection('devices').doc("blinds").get();
 
@@ -104,6 +105,13 @@ void readingsTempListener(NotificationService notificationService, FirebaseFires
   List<Notification> notifications = [];
   int variableToUpdate = 0;
   firestore.collection('readingsTemp').snapshots().listen((querySnapshot) async {
+
+    Mood? activeMood = await getActiveMood();
+
+    if(activeMood == null){
+      return;
+    }
+
     for (var change in querySnapshot.docChanges) {
       if (change.type == DocumentChangeType.modified) {
 
@@ -121,12 +129,6 @@ void readingsTempListener(NotificationService notificationService, FirebaseFires
         String titleText = "";
         String bodyText = "";
         String payloadText = "";
-
-        Mood? activeMood = await getActiveMood();
-
-        if(activeMood == null){
-          return;
-        }
 
         if(activeMood.useBlinds){
           DocumentSnapshot blindsSnapshot = await FirebaseFirestore.instance.collection('devices').doc("blinds").get();

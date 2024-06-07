@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'dart:math';
 
+import 'package:get_storage/get_storage.dart';
+
 class Register extends StatefulWidget {
   const Register({super.key});
 
@@ -30,6 +32,8 @@ class _RegisterState extends State<Register> {
 
   createAccount(String email, String pw, String key, String iv) async {
     Map<String, String> dataToAdd = { 'email': email, 'password': pw, 'key': key, 'iv': iv };
+    final box = GetStorage();
+    box.write('email', email);
     await FirebaseFirestore.instance.collection('accounts').add(dataToAdd);
   }
 
@@ -133,6 +137,9 @@ class _RegisterState extends State<Register> {
                         return null;
                       },
                     ),
+                  ),
+                  const SizedBox(
+                    height: 30,
                   ),
                   ElevatedButton(
                       style: flatButtonStyle,

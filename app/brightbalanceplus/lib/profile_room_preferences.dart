@@ -160,6 +160,7 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
   void showInputDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
         String inputText = '';
         return AlertDialog(
@@ -172,7 +173,7 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
             },
             decoration: const InputDecoration(hintText: "Enter name"),
           ),
-          actions: <Widget>[
+          actions: [
             TextButton(
               child: const Text('OK'),
               onPressed: () {
@@ -181,7 +182,9 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
                   currentColor = convertRGBToColor(activeMood.lightColor[0],
                       activeMood.lightColor[1], activeMood.lightColor[2]);
                 });
-                Navigator.of(context).pop();
+                if(inputText.isNotEmpty){
+                  Navigator.of(context).pop();
+                }
               },
             ),
           ],
@@ -333,8 +336,7 @@ class _ProfileRoomPreferencesState extends State<ProfileRoomPreferences> {
                 if (activeMood.name == 'Add Mood') {
                   showInputDialog();
                 } else {
-                  currentColor = convertRGBToColor(activeMood.lightColor[0],
-                      activeMood.lightColor[1], activeMood.lightColor[2]);
+                  currentColor = convertRGBToColor(activeMood.lightColor[0], activeMood.lightColor[1], activeMood.lightColor[2]);
                 }
                 moodIndex = moods.indexOf(activeMood);
               });
